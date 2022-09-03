@@ -61,17 +61,22 @@ class AuthManager:
     VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
     @staticmethod
-    def get_authenticated_service(authID, clientSecretFile=None, scopes=[]):       
+    def get_authenticated_service(authID, clientSecretFile=None, config=None, scopes=[]):       
         args = argparser.parse_args()
         
-        flow = flow_from_clientsecrets(clientSecretFile,
+        tokenPath = './'
+        if 'AUTH_MANAGER' in config and 'authTokenDir' in config['AUTH_MANAGER']:
+            tokenPath = config['AUTH_MANAGER']['authTokenDir'] 
+        
+        flow = flow_from_clientsecrets(os.path.join(tokenPath, clientSecretFile),
             scope=scopes,
             message=AuthManager.MISSING_CLIENT_SECRETS_MESSAGE)
 
-        storage = Storage("%s-oauth2.json" % authID)
+        storage = Storage(os.path.join(tokenPath, f'{authID}-oauth2.json'))
         credentials = storage.get()
 
         if credentials is None or credentials.invalid:
+            print(f'*********************CURRENT AUTH FOR {authID}*********************')
             credentials = run_flow(flow, storage, args)
 
         return build(AuthManager.YOUTUBE_API_SERVICE_NAME, AuthManager.YOUTUBE_API_VERSION,
