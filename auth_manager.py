@@ -45,38 +45,39 @@ class AuthManager:
 
     # This variable defines a message to display if the CLIENT_SECRETS_FILE is
     # missing.
-    MISSING_CLIENT_SECRETS_MESSAGE = """
-    WARNING: Please configure OAuth 2.0
-
-    To make this sample run you will need to populate the client_secrets.json file
-    found at:
-
-    with information from the API Console
-    https://console.developers.google.com/
-
-    For more information about the client_secrets.json file format, please visit:
-    https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
-    """
+    MISSING_CLIENT_SECRETS_MESSAGE = ""
 
     VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
+    REQUIRED_SERVICE_FIELD = ['clientSecret', 'scopes']
+
     @staticmethod
-    def get_authenticated_service(authID, clientSecretFile=None, config=None, scopes=[]):       
+    def get_authenticated_service(serviceConfig, authConfig=None,):       
         args = argparser.parse_args()
         
         tokenPath = './'
-        if 'AUTH_MANAGER' in config and 'authTokenDir' in config['AUTH_MANAGER']:
-            tokenPath = config['AUTH_MANAGER']['authTokenDir'] 
+        if authConfig and 'authTokenDir' in authConfig:
+            tokenPath = authConfig['authTokenDir']
+
+        secretsPath = './'
+        if authConfig and 'clientSecretDir' in authConfig:
+            secretsPath = authConfig['clientSecretDir']
         
-        flow = flow_from_clientsecrets(os.path.join(tokenPath, clientSecretFile),
-            scope=scopes,
+        if not all(required in serviceConfig for required in AuthManager.REQUIRED_SERVICE_FIELD):
+            print('Service config is missing a required field...')
+            sys.exit(1)
+
+        flow = flow_from_clientsecrets(os.path.join(secretsPath, serviceConfig['clientSecret']),
+            scope=serviceConfig['scopes'].split(','),
             message=AuthManager.MISSING_CLIENT_SECRETS_MESSAGE)
 
-        storage = Storage(os.path.join(tokenPath, f'{authID}-oauth2.json'))
+        storage = Storage(os.path.join(tokenPath, f'{serviceConfig.name}-oauth2.json'))
         credentials = storage.get()
 
         if credentials is None or credentials.invalid:
-            print(f'*********************CURRENT AUTH FOR {authID}*********************')
+            print(f'+------------------------------------------------------')
+            print(f'|               {serviceConfig.name}')
+            print(f'+------------------------------------------------------')
             credentials = run_flow(flow, storage, args)
 
         return build(AuthManager.YOUTUBE_API_SERVICE_NAME, AuthManager.YOUTUBE_API_VERSION,
